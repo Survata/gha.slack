@@ -11,7 +11,10 @@ export namespace util {
      * @param val
      */
     export function isTrue(val: string | undefined): boolean {
-        switch (val?.toLowerCase()) {
+        if (val == undefined) {
+            return false;
+        }
+        switch (val.toLowerCase()) {
             case 'true':
             case '1':
                 return true;

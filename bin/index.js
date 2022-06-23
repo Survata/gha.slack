@@ -167,7 +167,10 @@ const slack_1 = __nccwpck_require__(4521);
 var util;
 (function (util) {
     function isTrue(val) {
-        switch (val?.toLowerCase()) {
+        if (val == undefined) {
+            return false;
+        }
+        switch (val.toLowerCase()) {
             case 'true':
             case '1':
                 return true;
