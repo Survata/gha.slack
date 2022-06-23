@@ -1,0 +1,16 @@
+name: 'Slack'
+description: 'GitHub action which sends Slack messages'
+inputs:
+  type:
+    description: 'Type of Slack message'
+    required: true
+  token:
+    description: 'The Slack access token'
+    required: true
+  channel:
+    description: 'The Slack channel to post to'
+    required: true
+    default: CFSRFSGP8
+runs:
+  using: 'node12'
+  main: 'bin/index.js'
