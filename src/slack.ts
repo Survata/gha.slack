@@ -94,7 +94,7 @@ export namespace slack {
 /**
  * Defines a Slack message.
  */
-interface slackMessage {
+export interface slackMessage {
     content: string;
     tokens: string[];
 }
@@ -104,7 +104,7 @@ interface slackMessage {
  *
  * @param type
  */
-function messageFactory(type: slackMessageType): slackMessage {
+export function messageFactory(type: slackMessageType): slackMessage {
     switch (type) {
         case slackMessageType.build:
             return {

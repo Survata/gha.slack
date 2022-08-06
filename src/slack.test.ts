@@ -2,13 +2,9 @@
 
 'use strict';
 
-import rewire from 'rewire';
+import { messageFactory, slackMessageType } from './slack';
 
 describe('test messageFactory()', () => {
-    const codebuildModule = rewire('../dist/slack');
-    const messageFactory = codebuildModule.__get__('messageFactory');
-    const slackMessageType = codebuildModule.__get__('slackMessageType');
-
     test('build', () => {
         const expected = {
             content: '_Build:_ %BUILD%\n_Pushed by:_ %PUSHED_BY%\n_Message:_ %MESSAGE%',
