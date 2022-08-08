@@ -2,7 +2,7 @@
 
 'use strict';
 
-import { slackMessageType } from './slack';
+import { slackMessageType } from './slack.js';
 
 export namespace util {
     /**

@@ -3,9 +3,9 @@
 'use strict';
 
 import * as core from '@actions/core';
-import { util } from './util';
+import { util } from './util.js';
 import { program } from 'commander';
-import { slack } from './slack';
+import { slack } from './slack.js';
 import { slackArgs } from './slackArgs';
 
 if (util.isTrue(process.env.GITHUB_ACTIONS)) {
