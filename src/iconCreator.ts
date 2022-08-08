@@ -7,10 +7,10 @@ import { s3Client } from './s3Client';
 
 export namespace iconCreator {
     export async function conditionallyCreate(name: string) {
-        console.log('checking image', name)
+        console.log('checking image', name);
         const imageExists = await s3Client.checkIfExists(name);
         if (!imageExists) {
-            console.log('creating image', name)
+            console.log('creating image', name);
             await create(name);
         }
     }
