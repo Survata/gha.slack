@@ -5,6 +5,7 @@
 import { Argument, Command } from 'commander';
 import axios, { AxiosResponse } from 'axios';
 import { slackArgs } from './slackArgs';
+import {iconCreator} from "./iconCreator";
 
 /**
  * Defines the types of Slack messages.
@@ -79,6 +80,8 @@ export namespace slack {
         });
 
         const name: string = process.env.REPOSITORY || 'undefined';
+
+        iconCreator.conditionallyCreate(name).then()
 
         const body = {
             channel: args.channel,

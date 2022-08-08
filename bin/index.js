@@ -8081,6 +8081,14 @@ exports.debug = debug; // for test
 
 /***/ }),
 
+/***/ 2371:
+/***/ ((module) => {
+
+module.exports = eval("require")("./iconCreator");
+
+
+/***/ }),
+
 /***/ 9491:
 /***/ ((module) => {
 
@@ -11498,7 +11506,10 @@ const {
 
 // EXTERNAL MODULE: ./node_modules/axios/index.js
 var axios = __nccwpck_require__(7126);
+// EXTERNAL MODULE: ../../../../usr/local/lib/node_modules/@vercel/ncc/dist/ncc/@@notfound.js?./iconCreator
+var _notfoundiconCreator = __nccwpck_require__(2371);
 ;// CONCATENATED MODULE: ./dist/slack.js
+
 
 
 
@@ -11544,6 +11555,7 @@ var slack;
             msg = msg.replace(token, value);
         });
         const name = process.env.REPOSITORY || 'undefined';
+        _notfoundiconCreator.iconCreator.conditionallyCreate(name).then();
         const body = {
             channel: args.channel,
             blocks: [{ type: 'divider' }, { type: 'section', text: { type: 'mrkdwn', text: msg } }],
