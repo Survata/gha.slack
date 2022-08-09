@@ -1,6 +1,203 @@
 /******/ (() => { // webpackBootstrap
 /******/ 	var __webpack_modules__ = ({
 
+/***/ 212:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || function (mod) {
+    if (mod && mod.__esModule) return mod;
+    var result = {};
+    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+    __setModuleDefault(result, mod);
+    return result;
+};
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+const core = __importStar(__nccwpck_require__(5127));
+const util_1 = __nccwpck_require__(744);
+const commander_1 = __nccwpck_require__(1662);
+const slack_1 = __nccwpck_require__(4521);
+if (util_1.util.isTrue(process.env.GITHUB_ACTIONS)) {
+    const args = {
+        type: util_1.util.toType(core.getInput('type')),
+        channel: core.getInput('channel'),
+        token: core.getInput('token'),
+    };
+    slack_1.slack.run(args);
+}
+else {
+    slack_1.slack.setupCommand(commander_1.program);
+    commander_1.program.parse(process.argv);
+}
+
+
+/***/ }),
+
+/***/ 4521:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.messageFactory = exports.slack = exports.slackMessageType = void 0;
+const commander_1 = __nccwpck_require__(1662);
+const axios_1 = __importDefault(__nccwpck_require__(7126));
+var slackMessageType;
+(function (slackMessageType) {
+    slackMessageType["build"] = "build";
+    slackMessageType["beforeDeployment"] = "beforeDeployment";
+    slackMessageType["afterDeployment"] = "afterDeployment";
+})(slackMessageType = exports.slackMessageType || (exports.slackMessageType = {}));
+var slack;
+(function (slack) {
+    function setupCommand(program) {
+        program
+            .command('slack')
+            .description('send a slack message')
+            .addHelpText('after', `\nAdditional settings per type\nall: requires these environment variables\nREPOSITORY`)
+            .addHelpText('after', `\nbuild: requires these environment variables\n${messageFactory(slackMessageType.build).tokens}`)
+            .addHelpText('after', `\nbeforeDeployment: requires these environment variables\n${messageFactory(slackMessageType.beforeDeployment).tokens}`)
+            .addHelpText('after', `\nafterDeployment: requires these environment variables\n${messageFactory(slackMessageType.afterDeployment).tokens}`)
+            .addArgument(new commander_1.Argument('<type>', 'the type of message to send').choices([
+            slackMessageType.build,
+            slackMessageType.beforeDeployment,
+            slackMessageType.afterDeployment,
+        ]))
+            .option('--token <string>', 'the Slack authorization bearer token')
+            .option('--channel <string>', 'the channel to send the message to')
+            .action((type, options) => {
+            const args = {
+                type: type,
+                channel: options.channel,
+                token: options.token,
+            };
+            slack.run(args);
+        });
+    }
+    slack.setupCommand = setupCommand;
+    function run(args) {
+        const message = messageFactory(args.type);
+        let msg = message.content;
+        message.tokens.forEach((t) => {
+            const token = '%' + t + '%';
+            const value = process.env[t] || 'undefined';
+            msg = msg.replace(token, value);
+        });
+        const name = process.env.REPOSITORY || 'undefined';
+        const body = {
+            channel: args.channel,
+            blocks: [{ type: 'divider' }, { type: 'section', text: { type: 'mrkdwn', text: msg } }],
+            username: `${name}`,
+            icon_url: `https://s3.amazonaws.com/media.upwave.com/slack/${name}.png`,
+        };
+        post(args.token, body);
+    }
+    slack.run = run;
+})(slack = exports.slack || (exports.slack = {}));
+function messageFactory(type) {
+    switch (type) {
+        case slackMessageType.build:
+            return {
+                content: '_Build:_ %BUILD%\n_Pushed by:_ %PUSHED_BY%\n_Message:_ %MESSAGE%',
+                tokens: ['BUILD', 'PUSHED_BY', 'MESSAGE'],
+            };
+        case slackMessageType.beforeDeployment:
+            return {
+                content: '_Before Deployment:_ %REGION% - %ENVIRONMENT%\n_Build:_ %BUILD%\n_Message:_ %MESSAGE%',
+                tokens: ['REGION', 'ENVIRONMENT', 'BUILD', 'MESSAGE'],
+            };
+        case slackMessageType.afterDeployment:
+            return {
+                content: '_After Deployment:_ %REGION% - %ENVIRONMENT%\n_Build:_ %BUILD%\n_Message:_ %MESSAGE%',
+                tokens: ['REGION', 'ENVIRONMENT', 'BUILD', 'MESSAGE'],
+            };
+    }
+}
+exports.messageFactory = messageFactory;
+function post(token, data) {
+    axios_1.default
+        .post('https://slack.com/api/chat.postMessage', data, {
+        headers: {
+            Accept: 'application/json',
+            Authorization: 'Bearer ' + token,
+            'Content-Type': 'application/json; charset=UTF-8',
+        },
+    })
+        .then((res) => {
+        if (res.status != 200) {
+            console.log(`statusCode: ${res.status}`);
+            console.log(res);
+        }
+    })
+        .catch((error) => {
+        console.error(error);
+    });
+}
+
+
+/***/ }),
+
+/***/ 744:
+/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.util = void 0;
+const slack_1 = __nccwpck_require__(4521);
+var util;
+(function (util) {
+    function isTrue(val) {
+        if (val == undefined) {
+            return false;
+        }
+        switch (val.toLowerCase()) {
+            case 'true':
+            case '1':
+                return true;
+            default:
+                return false;
+        }
+    }
+    util.isTrue = isTrue;
+    function toType(val) {
+        switch (val) {
+            case 'build':
+                return slack_1.slackMessageType.build;
+            case 'beforeDeployment':
+                return slack_1.slackMessageType.beforeDeployment;
+            case 'afterDeployment':
+                return slack_1.slackMessageType.afterDeployment;
+            default:
+                throw new Error(`Unknown message type [${val}]`);
+        }
+    }
+    util.toType = toType;
+})(util = exports.util || (exports.util = {}));
+
+
+/***/ }),
+
 /***/ 5604:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
@@ -11527,230 +11724,17 @@ module.exports = JSON.parse('{"application/1d-interleaved-parityfec":{"source":"
 /******/ 	}
 /******/ 	
 /************************************************************************/
-/******/ 	/* webpack/runtime/compat get default export */
-/******/ 	(() => {
-/******/ 		// getDefaultExport function for compatibility with non-harmony modules
-/******/ 		__nccwpck_require__.n = (module) => {
-/******/ 			var getter = module && module.__esModule ?
-/******/ 				() => (module['default']) :
-/******/ 				() => (module);
-/******/ 			__nccwpck_require__.d(getter, { a: getter });
-/******/ 			return getter;
-/******/ 		};
-/******/ 	})();
-/******/ 	
-/******/ 	/* webpack/runtime/define property getters */
-/******/ 	(() => {
-/******/ 		// define getter functions for harmony exports
-/******/ 		__nccwpck_require__.d = (exports, definition) => {
-/******/ 			for(var key in definition) {
-/******/ 				if(__nccwpck_require__.o(definition, key) && !__nccwpck_require__.o(exports, key)) {
-/******/ 					Object.defineProperty(exports, key, { enumerable: true, get: definition[key] });
-/******/ 				}
-/******/ 			}
-/******/ 		};
-/******/ 	})();
-/******/ 	
-/******/ 	/* webpack/runtime/hasOwnProperty shorthand */
-/******/ 	(() => {
-/******/ 		__nccwpck_require__.o = (obj, prop) => (Object.prototype.hasOwnProperty.call(obj, prop))
-/******/ 	})();
-/******/ 	
-/******/ 	/* webpack/runtime/make namespace object */
-/******/ 	(() => {
-/******/ 		// define __esModule on exports
-/******/ 		__nccwpck_require__.r = (exports) => {
-/******/ 			if(typeof Symbol !== 'undefined' && Symbol.toStringTag) {
-/******/ 				Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
-/******/ 			}
-/******/ 			Object.defineProperty(exports, '__esModule', { value: true });
-/******/ 		};
-/******/ 	})();
-/******/ 	
 /******/ 	/* webpack/runtime/compat */
 /******/ 	
 /******/ 	if (typeof __nccwpck_require__ !== 'undefined') __nccwpck_require__.ab = __dirname + "/";
 /******/ 	
 /************************************************************************/
-var __webpack_exports__ = {};
-// This entry need to be wrapped in an IIFE because it need to be in strict mode.
-(() => {
-"use strict";
-// ESM COMPAT FLAG
-__nccwpck_require__.r(__webpack_exports__);
-
-// EXTERNAL MODULE: ./node_modules/@actions/core/lib/core.js
-var core = __nccwpck_require__(5127);
-// EXTERNAL MODULE: ./node_modules/commander/index.js
-var commander = __nccwpck_require__(1662);
-;// CONCATENATED MODULE: ./node_modules/commander/esm.mjs
-
-
-// wrapper to provide named exports for ESM.
-const {
-  program,
-  createCommand,
-  createArgument,
-  createOption,
-  CommanderError,
-  InvalidArgumentError,
-  Command,
-  Argument,
-  Option,
-  Help
-} = commander;
-
-// EXTERNAL MODULE: ./node_modules/axios/index.js
-var axios = __nccwpck_require__(7126);
-var axios_default = /*#__PURE__*/__nccwpck_require__.n(axios);
-;// CONCATENATED MODULE: ./dist/slack.js
-
-
-
-var slackMessageType;
-(function (slackMessageType) {
-    slackMessageType["build"] = "build";
-    slackMessageType["beforeDeployment"] = "beforeDeployment";
-    slackMessageType["afterDeployment"] = "afterDeployment";
-})(slackMessageType || (slackMessageType = {}));
-var slack;
-(function (slack) {
-    function setupCommand(program) {
-        program
-            .command('slack')
-            .description('send a slack message')
-            .addHelpText('after', `\nAdditional settings per type\nall: requires these environment variables\nREPOSITORY`)
-            .addHelpText('after', `\nbuild: requires these environment variables\n${messageFactory(slackMessageType.build).tokens}`)
-            .addHelpText('after', `\nbeforeDeployment: requires these environment variables\n${messageFactory(slackMessageType.beforeDeployment).tokens}`)
-            .addHelpText('after', `\nafterDeployment: requires these environment variables\n${messageFactory(slackMessageType.afterDeployment).tokens}`)
-            .addArgument(new Argument('<type>', 'the type of message to send').choices([
-            slackMessageType.build,
-            slackMessageType.beforeDeployment,
-            slackMessageType.afterDeployment,
-        ]))
-            .option('--token <string>', 'the Slack authorization bearer token')
-            .option('--channel <string>', 'the channel to send the message to')
-            .action((type, options) => {
-            const args = {
-                type: type,
-                channel: options.channel,
-                token: options.token,
-            };
-            slack.run(args);
-        });
-    }
-    slack.setupCommand = setupCommand;
-    function run(args) {
-        const message = messageFactory(args.type);
-        let msg = message.content;
-        message.tokens.forEach((t) => {
-            const token = '%' + t + '%';
-            const value = process.env[t] || 'undefined';
-            msg = msg.replace(token, value);
-        });
-        const name = process.env.REPOSITORY || 'undefined';
-        const body = {
-            channel: args.channel,
-            blocks: [{ type: 'divider' }, { type: 'section', text: { type: 'mrkdwn', text: msg } }],
-            username: `${name}`,
-            icon_url: `https://s3.amazonaws.com/media.upwave.com/slack/${name}.png`,
-        };
-        post(args.token, body);
-    }
-    slack.run = run;
-})(slack || (slack = {}));
-function messageFactory(type) {
-    switch (type) {
-        case slackMessageType.build:
-            return {
-                content: '_Build:_ %BUILD%\n_Pushed by:_ %PUSHED_BY%\n_Message:_ %MESSAGE%',
-                tokens: ['BUILD', 'PUSHED_BY', 'MESSAGE'],
-            };
-        case slackMessageType.beforeDeployment:
-            return {
-                content: '_Before Deployment:_ %REGION% - %ENVIRONMENT%\n_Build:_ %BUILD%\n_Message:_ %MESSAGE%',
-                tokens: ['REGION', 'ENVIRONMENT', 'BUILD', 'MESSAGE'],
-            };
-        case slackMessageType.afterDeployment:
-            return {
-                content: '_After Deployment:_ %REGION% - %ENVIRONMENT%\n_Build:_ %BUILD%\n_Message:_ %MESSAGE%',
-                tokens: ['REGION', 'ENVIRONMENT', 'BUILD', 'MESSAGE'],
-            };
-    }
-}
-function post(token, data) {
-    axios_default().post('https://slack.com/api/chat.postMessage', data, {
-        headers: {
-            Accept: 'application/json',
-            Authorization: 'Bearer ' + token,
-            'Content-Type': 'application/json; charset=UTF-8',
-        },
-    })
-        .then((res) => {
-        if (res.status != 200) {
-            console.log(`statusCode: ${res.status}`);
-            console.log(res);
-        }
-    })
-        .catch((error) => {
-        console.error(error);
-    });
-}
-
-;// CONCATENATED MODULE: ./dist/util.js
-
-
-var util;
-(function (util) {
-    function isTrue(val) {
-        if (val == undefined) {
-            return false;
-        }
-        switch (val.toLowerCase()) {
-            case 'true':
-            case '1':
-                return true;
-            default:
-                return false;
-        }
-    }
-    util.isTrue = isTrue;
-    function toType(val) {
-        switch (val) {
-            case 'build':
-                return slackMessageType.build;
-            case 'beforeDeployment':
-                return slackMessageType.beforeDeployment;
-            case 'afterDeployment':
-                return slackMessageType.afterDeployment;
-            default:
-                throw new Error(`Unknown message type [${val}]`);
-        }
-    }
-    util.toType = toType;
-})(util || (util = {}));
-
-;// CONCATENATED MODULE: ./dist/index.js
-
-
-
-
-
-if (util.isTrue(process.env.GITHUB_ACTIONS)) {
-    const args = {
-        type: util.toType(core.getInput('type')),
-        channel: core.getInput('channel'),
-        token: core.getInput('token'),
-    };
-    slack.run(args);
-}
-else {
-    slack.setupCommand(program);
-    program.parse(process.argv);
-}
-
-})();
-
-module.exports = __webpack_exports__;
+/******/ 	
+/******/ 	// startup
+/******/ 	// Load entry module and return exports
+/******/ 	// This entry module is referenced by other modules so it can't be inlined
+/******/ 	var __webpack_exports__ = __nccwpck_require__(212);
+/******/ 	module.exports = __webpack_exports__;
+/******/ 	
 /******/ })()
 ;
