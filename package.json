@@ -37,6 +37,5 @@
     "test": "tsc && jest --config jestconfig.json",
     "local": "tsc && node ./dist/index.js",
     "package": "tsc && ncc build ./dist/index.js -o bin"
-  },
-  "type": "module"
+  }
 }

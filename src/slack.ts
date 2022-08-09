@@ -5,7 +5,7 @@
 import { Argument, Command } from 'commander';
 import axios, { AxiosResponse } from 'axios';
 import { slackArgs } from './slackArgs';
-import { iconCreator } from './iconCreator.js';
+import { iconCreator } from './iconCreator';
 
 /**
  * Defines the types of Slack messages.
