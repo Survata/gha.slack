@@ -14,7 +14,7 @@ if (util.isTrue(process.env.GITHUB_ACTIONS)) {
         channel: core.getInput('channel'),
         token: core.getInput('token'),
     };
-    slack.run(args);
+    void slack.run(args);
 } else {
     slack.setupCommand(program);
     program.parse(process.argv);

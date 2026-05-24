@@ -4,7 +4,20 @@
 
 import { Argument, Command } from 'commander';
 import axios, { AxiosResponse } from 'axios';
+import * as core from '@actions/core';
 import { slackArgs } from './slackArgs';
+
+/**
+ * Slack rejects section block text fields longer than 3000 chars, so we truncate
+ * each substituted token to leave headroom for surrounding markdown/labels. The
+ * commit message is the usual culprit (squash merges, co-author trailers, etc).
+ */
+export const MAX_TOKEN_LENGTH = 2800;
+const TRUNCATION_SUFFIX = '\n…(truncated)';
+
+export function truncate(value: string, max: number = MAX_TOKEN_LENGTH): string {
+    return value.length <= max ? value : value.slice(0, max) + TRUNCATION_SUFFIX;
+}
 
 /**
  * Defines the types of Slack messages.
@@ -54,13 +67,13 @@ export namespace slack {
             )
             .option('--token <string>', 'the Slack authorization bearer token')
             .option('--channel <string>', 'the channel to send the message to')
-            .action((type, options) => {
+            .action(async (type, options) => {
                 const args: slackArgs = {
                     type: type,
                     channel: options.channel,
                     token: options.token,
                 };
-                slack.run(args);
+                await slack.run(args);
             });
     }
 
@@ -69,12 +82,12 @@ export namespace slack {
      *
      * @param args
      */
-    export function run(args: slackArgs): void {
+    export async function run(args: slackArgs): Promise<void> {
         const message = messageFactory(args.type);
         let msg = message.content;
         message.tokens.forEach((t: string) => {
             const token: string = '%' + t + '%';
-            const value: string = process.env[t] || 'undefined';
+            const value: string = truncate(process.env[t] || 'undefined');
             msg = msg.replace(token, value);
         });
 
@@ -87,7 +100,7 @@ export namespace slack {
             icon_url: `https://s3.amazonaws.com/media.upwave.com/slack/${name}.png`,
         };
 
-        post(args.token, body);
+        await post(args.token, body);
     }
 }
 
@@ -125,27 +138,30 @@ export function messageFactory(type: slackMessageType): slackMessage {
 }
 
 /**
- * Performs an HTTP POST.
+ * Performs an HTTP POST to Slack. Best-effort: a failed send is logged as a
+ * warning but never fails the step — the artifact (publish/deploy) has already
+ * happened by the time we get here, so reporting it as a failed step would
+ * misrepresent what actually happened.
  *
  * @param token - the bearer token.
  * @param data - the data to post.
  */
-function post(token: string, data: any) {
-    axios
-        .post('https://slack.com/api/chat.postMessage', data, {
+async function post(token: string, data: any): Promise<void> {
+    try {
+        const res: AxiosResponse = await axios.post('https://slack.com/api/chat.postMessage', data, {
             headers: {
                 Accept: 'application/json',
                 Authorization: 'Bearer ' + token,
                 'Content-Type': 'application/json; charset=UTF-8',
             },
-        })
-        .then((res: AxiosResponse) => {
-            if (res.status != 200) {
-                console.log(`statusCode: ${res.status}`);
-                console.log(res);
-            }
-        })
-        .catch((error: any) => {
-            console.error(error);
         });
+        // Slack returns HTTP 200 with `ok: false` for application-level errors
+        // (e.g. invalid_blocks when text > 3000 chars), so the HTTP status alone
+        // isn't enough.
+        if (res.status !== 200 || !res.data?.ok) {
+            core.warning(`Slack message not sent: status=${res.status} body=${JSON.stringify(res.data)}`);
+        }
+    } catch (error: any) {
+        core.warning(`Slack message not sent: ${error?.message || error}`);
+    }
 }
