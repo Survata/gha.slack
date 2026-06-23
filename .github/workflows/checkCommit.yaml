@@ -1,0 +1,37 @@
+# Runs on every push to a non-master branch and validates that linting, the unit
+# tests, and the bundle build all pass before the change is merged.
+name: check commit
+
+on:
+  push:
+    branches-ignore:
+      - master
+
+concurrency:
+  group: check-commit-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: yarn
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Lint
+        run: yarn lint
+
+      - name: Test
+        run: yarn test
+
+      - name: Build bundle
+        run: yarn package
