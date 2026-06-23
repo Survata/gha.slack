@@ -3,7 +3,7 @@
 'use strict';
 
 import { Argument, Command } from 'commander';
-import axios, { AxiosResponse } from 'axios';
+import { HttpClient } from '@actions/http-client';
 import * as core from '@actions/core';
 import { slackArgs } from './slackArgs';
 
@@ -148,18 +148,16 @@ export function messageFactory(type: slackMessageType): slackMessage {
  */
 async function post(token: string, data: any): Promise<void> {
     try {
-        const res: AxiosResponse = await axios.post('https://slack.com/api/chat.postMessage', data, {
-            headers: {
-                Accept: 'application/json',
-                Authorization: 'Bearer ' + token,
-                'Content-Type': 'application/json; charset=UTF-8',
-            },
+        const client = new HttpClient();
+        // postJson serialises the body and sets Accept/Content-Type: application/json.
+        const res = await client.postJson<{ ok?: boolean }>('https://slack.com/api/chat.postMessage', data, {
+            Authorization: 'Bearer ' + token,
         });
         // Slack returns HTTP 200 with `ok: false` for application-level errors
         // (e.g. invalid_blocks when text > 3000 chars), so the HTTP status alone
         // isn't enough.
-        if (res.status !== 200 || !res.data?.ok) {
-            core.warning(`Slack message not sent: status=${res.status} body=${JSON.stringify(res.data)}`);
+        if (res.statusCode !== 200 || !res.result?.ok) {
+            core.warning(`Slack message not sent: status=${res.statusCode} body=${JSON.stringify(res.result)}`);
         }
     } catch (error: any) {
         core.warning(`Slack message not sent: ${error?.message || error}`);
