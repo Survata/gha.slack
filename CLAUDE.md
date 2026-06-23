@@ -37,6 +37,12 @@ yarn package    # tsc + ncc → bin/index.js
 
 See [README.md](README.md) for the publish procedure. Key thing to remember: all consumers pin `@v1`, so moving the `v1` tag rolls everyone in one shot. There is no per-consumer change required.
 
+## Dependency updates (Dependabot)
+
+- Config lives in [`.github/dependabot.yml`](.github/dependabot.yml). Updates are **grouped** (production / development × version / security) to avoid one PR per advisory. Only the `npm` ecosystem is monitored — there are no GitHub Actions workflows in this repo.
+- **Merging a Dependabot PR does NOT ship the fix.** It only updates `package.json` / `yarn.lock`; the running artifact is the committed `bin/index.js` bundle, which Dependabot does not regenerate. A bare merge leaves consumers on the old code.
+- To actually deploy a dependency bump: check out the change, then `yarn install && yarn lint && yarn test && yarn package`, commit the regenerated `bin/index.js` alongside the lockfile, and **move the `v1` tag** (full steps in README's "Dependency updates (Dependabot)" section). Nothing is live until `v1` moves.
+
 ## Consumers
 
 Currently used by 9 repos: keystone, survata-dashboard, survata-jobs, survata-surveywall-api, campaign-creator, email-service, llm-orchestrator, survata-com, upwave-app. All pin `@v1`. Any breaking change must keep `@v1` working or coordinate updates across all of them.

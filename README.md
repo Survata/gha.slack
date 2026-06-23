@@ -125,3 +125,35 @@ All consumers reference `Survata/gha.slack@v1`. The `v1` tag is a **floating tag
 - There is no Marketplace release flow. The action is not listed there; consumers reference the repo directly.
 - There is no semantic-versioning automation. You decide when to cut `v1.x.y` and whether to move `v1`.
 - Repository icon: each consumer expects an icon at `https://s3.amazonaws.com/media.upwave.com/slack/<repo-name>.png`. When onboarding a new consumer, upload its icon to that S3 path.
+
+## Dependency updates (Dependabot)
+
+Dependabot is configured in [`.github/dependabot.yml`](.github/dependabot.yml). It runs weekly and **groups** updates into a handful of consolidated PRs (production / development × version / security) rather than opening one PR per advisory.
+
+### ⚠️ Merging a Dependabot PR is NOT a deploy
+
+The artifact that actually runs in consumer workflows is the committed `bin/index.js` bundle, **not** `package.json` / `yarn.lock`. A Dependabot PR only updates the manifests and the lockfile — it does **not** regenerate the bundle. If you merge a Dependabot PR and stop there, every consumer keeps running the old, unpatched code that is still baked into `bin/index.js`.
+
+To actually ship a dependency update you must rebuild the bundle and move the `v1` tag:
+
+1. Merge (or check out) the Dependabot branch so `package.json` / `yarn.lock` are updated.
+
+2. Reinstall, verify, and regenerate the bundle:
+
+   ```bash
+   yarn install
+   yarn lint
+   yarn test
+   yarn package
+   ```
+
+3. Commit the regenerated bundle together with the lockfile change:
+
+   ```bash
+   git add package.json yarn.lock bin/index.js
+   git commit -m "Rebuild bundle after dependency update"
+   ```
+
+4. Follow [Publishing a new version](#publishing-a-new-version) from step 4 — optionally validate via the `v1-rc` tag, then **move the `v1` tag** to the new commit. The rollout is not live until `v1` moves.
+
+A quick way to confirm a bump actually reached the bundle: after `yarn package`, grep `bin/index.js` for the new version string or the patched code before moving `v1`.

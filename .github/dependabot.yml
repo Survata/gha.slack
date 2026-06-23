@@ -1,0 +1,42 @@
+# Dependabot configuration.
+#
+# IMPORTANT: merging a Dependabot PR is NOT a deploy. The shipped artifact is the
+# committed `bin/index.js` ncc bundle, which Dependabot does NOT regenerate. After
+# merging any dependency bump you must run `yarn package`, commit the regenerated
+# `bin/index.js`, and move the `v1` tag — otherwise every consumer keeps running the
+# old code. See "Dependency updates (Dependabot)" in README.md.
+#
+# Updates are grouped (production / development × version / security) so we get a
+# handful of consolidated PRs instead of one PR per advisory.
+#
+# Only the `npm` ecosystem is configured: there are no GitHub Actions workflows in
+# this repo, so the `github-actions` ecosystem would have nothing to monitor.
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 10
+    groups:
+      production-dependencies:
+        applies-to: version-updates
+        dependency-type: "production"
+        patterns:
+          - "*"
+      production-security:
+        applies-to: security-updates
+        dependency-type: "production"
+        patterns:
+          - "*"
+      development-dependencies:
+        applies-to: version-updates
+        dependency-type: "development"
+        patterns:
+          - "*"
+      development-security:
+        applies-to: security-updates
+        dependency-type: "development"
+        patterns:
+          - "*"
