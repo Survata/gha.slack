@@ -213,11 +213,10 @@ export function buildBody(args: slackArgs): object {
 
     return {
         ...base,
-        // Top-level text is what Slack shows in mobile push notifications and the
-        // channel-list preview — attachment blocks don't drive those. Mirror the
-        // header so a failure alert reads as a failure before it's even opened.
-        text: header,
-        attachments: [{ color: attachmentColor(args.status), blocks }],
+        // `fallback` — not top-level `text` — carries the notification/preview
+        // summary. A top-level `text` renders a second time above the attachment
+        // and duplicates the header line; `fallback` isn't shown in the message body.
+        attachments: [{ color: attachmentColor(args.status), fallback: header, blocks }],
     };
 }
 

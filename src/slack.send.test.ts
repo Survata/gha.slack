@@ -52,8 +52,10 @@ describe('slack.run() Slack send via @actions/http-client', () => {
         // A successful build renders inside a green ("good") attachment with a ✅ header.
         expect(body.attachments[0].color).toBe('good');
         expect(JSON.stringify(body.attachments)).toContain('✅ keystone — published');
-        // Top-level text drives the mobile push notification / preview.
-        expect(body.text).toBe('✅ keystone — published');
+        // No top-level text — it would render a second time above the attachment and
+        // duplicate the header. The notification summary lives in the attachment fallback.
+        expect(body.text).toBeUndefined();
+        expect(body.attachments[0].fallback).toBe('✅ keystone — published');
         // %BUILD% / %MESSAGE% tokens are substituted from the environment.
         expect(JSON.stringify(body.attachments)).toContain('1.2.3');
         expect(JSON.stringify(body.attachments)).toContain('a commit message');
@@ -70,7 +72,8 @@ describe('slack.run() Slack send via @actions/http-client', () => {
 
         const [, body] = postJson.mock.calls[0];
         expect(body.attachments[0].color).toBe('danger');
-        expect(body.text).toBe('🚨 keystone — PUBLISH FAILED');
+        expect(body.text).toBeUndefined();
+        expect(body.attachments[0].fallback).toBe('🚨 keystone — PUBLISH FAILED');
         const serialised = JSON.stringify(body.attachments);
         expect(serialised).toContain('🚨 keystone — PUBLISH FAILED');
         expect(serialised).toContain('https://github.com/Survata/keystone/actions/runs/99');
@@ -185,7 +188,7 @@ describe('buildBody() payload assembly', () => {
             token: 't',
         });
 
-        expect(body.text).toBe('🚨 keystone — DEPLOY FAILED (us / staging)');
+        expect(body.attachments[0].blocks[0].text.text).toBe('🚨 keystone — DEPLOY FAILED (us / staging)');
         const section = body.attachments[0].blocks[2].text.text;
         expect(section).toBe('_Build:_ 1.2.3');
         expect(section).not.toContain('Pushed by');
