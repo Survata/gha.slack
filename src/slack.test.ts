@@ -65,13 +65,43 @@ describe('statusHeader()', () => {
     test.each([
         [slackMessageType.build, slackStatus.success, undefined, undefined, '✅ keystone — published'],
         [slackMessageType.build, slackStatus.failure, undefined, undefined, '🚨 keystone — PUBLISH FAILED'],
-        [slackMessageType.afterDeployment, slackStatus.success, 'us', 'staging', '✅ keystone — deployed (us / staging)'],
-        [slackMessageType.afterDeployment, slackStatus.failure, 'us', 'staging', '🚨 keystone — DEPLOY FAILED (us / staging)'],
+        [
+            slackMessageType.afterDeployment,
+            slackStatus.success,
+            'us',
+            'staging',
+            '✅ keystone — deployed (us / staging)',
+        ],
+        [
+            slackMessageType.afterDeployment,
+            slackStatus.failure,
+            'us',
+            'staging',
+            '🚨 keystone — DEPLOY FAILED (us / staging)',
+        ],
         // An early deploy failure may not have exported REGION/ENVIRONMENT yet — the header drops the location.
         [slackMessageType.afterDeployment, slackStatus.failure, undefined, undefined, '🚨 keystone — DEPLOY FAILED'],
-        [slackMessageType.beforeDeployment, slackStatus.failure, 'us', 'staging', '🚨 keystone — DEPLOYMENT FAILED (us / staging)'],
+        [
+            slackMessageType.beforeDeployment,
+            slackStatus.failure,
+            'us',
+            'staging',
+            '🚨 keystone — DEPLOYMENT FAILED (us / staging)',
+        ],
     ])('%s / %s → %s', (type, status, region, environment, expected) => {
         expect(statusHeader(type, status, 'keystone', region, environment)).toBe(expected);
+    });
+
+    test('caps the header at Slack’s 150-char limit so it never trips invalid_blocks', () => {
+        const header = statusHeader(
+            slackMessageType.afterDeployment,
+            slackStatus.failure,
+            'keystone',
+            'x'.repeat(200),
+            'staging',
+        );
+        expect(header.length).toBeLessThanOrEqual(150);
+        expect(header.endsWith('…')).toBe(true);
     });
 });
 
@@ -94,7 +124,9 @@ describe('runUrl()', () => {
     });
 
     test('returns undefined when any component is missing', () => {
-        expect(runUrl({ GITHUB_SERVER_URL: 'https://github.com', GITHUB_REPOSITORY: 'Survata/keystone' })).toBeUndefined();
+        expect(
+            runUrl({ GITHUB_SERVER_URL: 'https://github.com', GITHUB_REPOSITORY: 'Survata/keystone' }),
+        ).toBeUndefined();
         expect(runUrl({})).toBeUndefined();
     });
 });

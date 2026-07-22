@@ -4,13 +4,14 @@ A GitHub Action that posts Slack messages from CI workflows. Used by Upwave's ba
 
 ## Usage
 
-Success notification (the default — `status` omitted):
+Success notification — pass `status: success` for the ✅ header:
 
 ```yaml
 - name: Send Slack message
   uses: Survata/gha.slack@v2
   with:
     type: build
+    status: success
     token: ${{ secrets.SLACK_BOT_TOKEN }}
   env:
     REPOSITORY: ${{ github.event.repository.name }}
@@ -41,18 +42,19 @@ Failure notification — an `if: failure()` step with `status: failure`:
 | Input     | Required | Default      | Description                          |
 |-----------|----------|--------------|--------------------------------------|
 | `type`    | yes      | —            | `build`, `beforeDeployment`, or `afterDeployment` |
-| `status`  | no       | `success`    | `success` or `failure` — drives the header emoji and colour bar |
+| `status`  | no       | *(none)*     | `success` or `failure` — sets the header emoji and colour bar. Omit for a plain message with no status indicator |
 | `token`   | yes      | —            | Slack bot token                      |
 | `channel` | no       | `CFSRFSGP8`  | Channel ID to post to                |
 
 ### Status & failure highlighting
 
-Every message renders inside a coloured attachment with a bold header:
+`status` is **optional** and has three renderings:
 
-- `success` → green bar, `✅ <repo> — published` / `✅ <repo> — deployed (<region> / <env>)`
-- `failure` → red bar, `🚨 <repo> — PUBLISH FAILED` / `🚨 <repo> — DEPLOY FAILED (<region> / <env>)`, plus a `View run ↗` link to the failed Actions run.
+- `success` → green ("good") bar + bold header `✅ <repo> — published` / `✅ <repo> — deployed (<region> / <env>)`.
+- `failure` → red ("danger") bar + bold header `🚨 <repo> — PUBLISH FAILED` / `🚨 <repo> — DEPLOY FAILED (<region> / <env>)`, plus a `View run ↗` link to the failed Actions run.
+- **omitted** → a plain message (no header, no colour bar) — for notifications where a success/failure status doesn't apply.
 
-The run link is built from the runner's own `GITHUB_SERVER_URL` / `GITHUB_REPOSITORY` / `GITHUB_RUN_ID`, so no workflow wiring is required for it.
+For `success`/`failure`, the run link is built from the runner's own `GITHUB_SERVER_URL` / `GITHUB_REPOSITORY` / `GITHUB_RUN_ID`, so no workflow wiring is required for it. An unrecognised non-empty `status` is treated as `failure` (never a false success), and the action never fails the workflow step over a bad value.
 
 ### Environment variables
 
@@ -87,18 +89,23 @@ The action runs `bin/index.js`, which is a committed bundle produced by `@vercel
 When `GITHUB_ACTIONS` is unset, `index.ts` exposes a CLI:
 
 ```bash
+# Success (✅ header, green bar):
 REPOSITORY=keystone BUILD=1.2.3 PUSHED_BY=dave MESSAGE="local test" \
-  yarn local slack build --token xoxb-... --channel C12345678
+  yarn local slack build --status success --token xoxb-... --channel C12345678
 
-# Failure variant (renders the 🚨 header, red bar, and run link):
+# Failure (🚨 header, red bar, run link):
 REPOSITORY=keystone BUILD=1.2.3 PUSHED_BY=dave MESSAGE="local test" \
   GITHUB_SERVER_URL=https://github.com GITHUB_REPOSITORY=Survata/keystone GITHUB_RUN_ID=123 \
   yarn local slack build --status failure --token xoxb-... --channel C12345678
+
+# No status (plain message — omit --status):
+REPOSITORY=keystone BUILD=1.2.3 PUSHED_BY=dave MESSAGE="local test" \
+  yarn local slack build --token xoxb-... --channel C12345678
 ```
 
 ## Versioning: `v1` vs `v2`
 
-`v2` introduced the `status` input and the ✅/🚨 header + colour-bar treatment. It is rolled out **opt-in**: a consumer moves from `@v1` to `@v2` by editing its own workflows (and adding the `if: failure()` steps). There is no big-bang — `v1` is frozen at its last commit and un-migrated repos keep the old plain-text behaviour until their PR lands.
+`v2` introduced the optional `status` input and the ✅/🚨 header + colour-bar treatment. It is rolled out **opt-in**: a consumer moves from `@v1` to `@v2` by editing its own workflows to pass `status: success` on the existing notify step and add an `if: failure()` step with `status: failure`. There is no big-bang — `v1` is frozen at its last commit and un-migrated repos keep the old plain-text behaviour until their PR lands.
 
 Within a major, the tag is still **floating**: once a repo pins `@v2`, moving the `v2` tag rolls that repo to the newest v2 bundle on its next run. The procedure below applies to patching whichever major is current (substitute `v2` for `v1`).
 

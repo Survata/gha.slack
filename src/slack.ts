@@ -21,6 +21,17 @@ export function truncate(value: string, max: number = MAX_TOKEN_LENGTH): string 
 }
 
 /**
+ * Slack `header` blocks reject text longer than 150 chars with `invalid_blocks`,
+ * which post() only logs — so an over-long header would silently drop the whole
+ * (often failure) notification. Cap it to stay valid.
+ */
+const MAX_HEADER_LENGTH = 150;
+
+function truncateHeader(header: string): string {
+    return header.length <= MAX_HEADER_LENGTH ? header : header.slice(0, MAX_HEADER_LENGTH - 1) + '…';
+}
+
+/**
  * Defines the types of Slack messages.
  */
 export enum slackMessageType { // eslint-disable-line no-unused-vars -- it is used, not sure why this is failing lint
@@ -67,12 +78,12 @@ export function statusHeader(
     const location: string = region && environment ? ` (${region} / ${environment})` : '';
     switch (type) {
         case slackMessageType.build:
-            return `${emoji} ${repository} — ${failed ? 'PUBLISH FAILED' : 'published'}`;
+            return truncateHeader(`${emoji} ${repository} — ${failed ? 'PUBLISH FAILED' : 'published'}`);
         // beforeDeployment is a legacy type — no repo currently emits it — kept for completeness.
         case slackMessageType.beforeDeployment:
-            return `${emoji} ${repository} — ${failed ? 'DEPLOYMENT FAILED' : 'deploying'}${location}`;
+            return truncateHeader(`${emoji} ${repository} — ${failed ? 'DEPLOYMENT FAILED' : 'deploying'}${location}`);
         case slackMessageType.afterDeployment:
-            return `${emoji} ${repository} — ${failed ? 'DEPLOY FAILED' : 'deployed'}${location}`;
+            return truncateHeader(`${emoji} ${repository} — ${failed ? 'DEPLOY FAILED' : 'deployed'}${location}`);
     }
 }
 
@@ -131,7 +142,7 @@ export namespace slack {
             )
             .option('--token <string>', 'the Slack authorization bearer token')
             .option('--channel <string>', 'the channel to send the message to')
-            .option('--status <string>', 'success (default) or failure')
+            .option('--status <string>', 'success or failure (omit for no status indicator)')
             .action(async (type, options) => {
                 const args: slackArgs = {
                     type: type,
@@ -169,12 +180,24 @@ export function buildBody(args: slackArgs): object {
     });
 
     const name: string = process.env.REPOSITORY || 'undefined';
-    const header: string = statusHeader(args.type, args.status, name, process.env.REGION, process.env.ENVIRONMENT);
+    const section = { type: 'section', text: { type: 'mrkdwn', text: msg } };
+    const base = {
+        channel: args.channel,
+        username: `${name}`,
+        icon_url: `https://s3.amazonaws.com/media.upwave.com/slack/${name}.png`,
+    };
 
+    // No status → a plain message with no header or colour bar. Some notifications
+    // legitimately have no success/failure to report; keep the pre-status rendering.
+    if (!args.status) {
+        return { ...base, blocks: [{ type: 'divider' }, section] };
+    }
+
+    const header: string = statusHeader(args.type, args.status, name, process.env.REGION, process.env.ENVIRONMENT);
     const blocks: any[] = [
         { type: 'header', text: { type: 'plain_text', text: header, emoji: true } },
         { type: 'divider' },
-        { type: 'section', text: { type: 'mrkdwn', text: msg } },
+        section,
     ];
 
     // Only failures carry a run link — it's the actionable bit when something breaks.
@@ -186,13 +209,11 @@ export function buildBody(args: slackArgs): object {
     }
 
     return {
-        channel: args.channel,
+        ...base,
         // Top-level text is what Slack shows in mobile push notifications and the
         // channel-list preview — attachment blocks don't drive those. Mirror the
         // header so a failure alert reads as a failure before it's even opened.
         text: header,
-        username: `${name}`,
-        icon_url: `https://s3.amazonaws.com/media.upwave.com/slack/${name}.png`,
         attachments: [{ color: attachmentColor(args.status), blocks }],
     };
 }

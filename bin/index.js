@@ -91,6 +91,10 @@ function truncate(value, max = exports.MAX_TOKEN_LENGTH) {
     return value.length <= max ? value : value.slice(0, max) + TRUNCATION_SUFFIX;
 }
 exports.truncate = truncate;
+const MAX_HEADER_LENGTH = 150;
+function truncateHeader(header) {
+    return header.length <= MAX_HEADER_LENGTH ? header : header.slice(0, MAX_HEADER_LENGTH - 1) + '…';
+}
 var slackMessageType;
 (function (slackMessageType) {
     slackMessageType["build"] = "build";
@@ -116,11 +120,11 @@ function statusHeader(type, status, repository, region, environment) {
     const location = region && environment ? ` (${region} / ${environment})` : '';
     switch (type) {
         case slackMessageType.build:
-            return `${emoji} ${repository} — ${failed ? 'PUBLISH FAILED' : 'published'}`;
+            return truncateHeader(`${emoji} ${repository} — ${failed ? 'PUBLISH FAILED' : 'published'}`);
         case slackMessageType.beforeDeployment:
-            return `${emoji} ${repository} — ${failed ? 'DEPLOYMENT FAILED' : 'deploying'}${location}`;
+            return truncateHeader(`${emoji} ${repository} — ${failed ? 'DEPLOYMENT FAILED' : 'deploying'}${location}`);
         case slackMessageType.afterDeployment:
-            return `${emoji} ${repository} — ${failed ? 'DEPLOY FAILED' : 'deployed'}${location}`;
+            return truncateHeader(`${emoji} ${repository} — ${failed ? 'DEPLOY FAILED' : 'deployed'}${location}`);
     }
 }
 exports.statusHeader = statusHeader;
@@ -151,7 +155,7 @@ var slack;
         ]))
             .option('--token <string>', 'the Slack authorization bearer token')
             .option('--channel <string>', 'the channel to send the message to')
-            .option('--status <string>', 'success (default) or failure')
+            .option('--status <string>', 'success or failure (omit for no status indicator)')
             .action(async (type, options) => {
             const args = {
                 type: type,
@@ -177,11 +181,20 @@ function buildBody(args) {
         msg = msg.replace(token, value);
     });
     const name = process.env.REPOSITORY || 'undefined';
+    const section = { type: 'section', text: { type: 'mrkdwn', text: msg } };
+    const base = {
+        channel: args.channel,
+        username: `${name}`,
+        icon_url: `https://s3.amazonaws.com/media.upwave.com/slack/${name}.png`,
+    };
+    if (!args.status) {
+        return { ...base, blocks: [{ type: 'divider' }, section] };
+    }
     const header = statusHeader(args.type, args.status, name, process.env.REGION, process.env.ENVIRONMENT);
     const blocks = [
         { type: 'header', text: { type: 'plain_text', text: header, emoji: true } },
         { type: 'divider' },
-        { type: 'section', text: { type: 'mrkdwn', text: msg } },
+        section,
     ];
     if (args.status === slackStatus.failure) {
         const url = runUrl();
@@ -190,10 +203,8 @@ function buildBody(args) {
         }
     }
     return {
-        channel: args.channel,
+        ...base,
         text: header,
-        username: `${name}`,
-        icon_url: `https://s3.amazonaws.com/media.upwave.com/slack/${name}.png`,
         attachments: [{ color: attachmentColor(args.status), blocks }],
     };
 }
@@ -273,7 +284,10 @@ var util;
     }
     util.toType = toType;
     function toStatus(val) {
-        return val === slack_1.slackStatus.failure ? slack_1.slackStatus.failure : slack_1.slackStatus.success;
+        if (!val) {
+            return undefined;
+        }
+        return val === slack_1.slackStatus.success ? slack_1.slackStatus.success : slack_1.slackStatus.failure;
     }
     util.toStatus = toStatus;
 })(util = exports.util || (exports.util = {}));

@@ -32,11 +32,17 @@ describe('toStatus', () => {
         expect(util.toStatus('failure')).toBe(slackStatus.failure);
     });
 
-    test('defaults to success for empty, undefined, or unrecognised values', () => {
-        // The `status` input is optional (default success), so anything that
-        // isn't an explicit failure must be treated as a success.
-        expect(util.toStatus('')).toBe(slackStatus.success);
-        expect(util.toStatus(undefined)).toBe(slackStatus.success);
-        expect(util.toStatus('cancelled')).toBe(slackStatus.success);
+    test('treats empty/undefined as no status (the input is optional)', () => {
+        // Omitting `status` means "no status indicator" — not a claimed success.
+        expect(util.toStatus('')).toBeUndefined();
+        expect(util.toStatus(undefined)).toBeUndefined();
+    });
+
+    test('treats an unrecognised non-empty value as failure, never a false success', () => {
+        // A misconfigured/typo'd status must never post a green ✅ over a real
+        // failure — fail toward alerting. (Not a throw: this action must never
+        // fail the consuming workflow step.)
+        expect(util.toStatus('cancelled')).toBe(slackStatus.failure);
+        expect(util.toStatus('faliure')).toBe(slackStatus.failure);
     });
 });

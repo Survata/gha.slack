@@ -29,7 +29,12 @@ afterEach(() => {
     delete process.env.ENVIRONMENT;
 });
 
-const args = { type: slackMessageType.build, status: slackStatus.success, channel: 'C12345678', token: 'xoxb-test-token' };
+const args = {
+    type: slackMessageType.build,
+    status: slackStatus.success,
+    channel: 'C12345678',
+    token: 'xoxb-test-token',
+};
 
 describe('slack.run() Slack send via @actions/http-client', () => {
     test('posts to chat.postMessage with bearer auth and the substituted body', async () => {
@@ -136,6 +141,21 @@ describe('buildBody() payload assembly', () => {
         expect(blocks).toHaveLength(4);
         expect(blocks[3].type).toBe('context');
         expect(blocks[3].elements[0].text).toContain('https://github.com/Survata/keystone/actions/runs/7');
+    });
+
+    test('no status → a plain message: no header, colour bar, attachment, or top-level text', () => {
+        const body: any = buildBody({ type: slackMessageType.build, channel: 'C1', token: 't' });
+
+        expect(body.attachments).toBeUndefined();
+        expect(body.text).toBeUndefined();
+        // Plain top-level blocks, matching the pre-status rendering.
+        expect(body.blocks[0].type).toBe('divider');
+        expect(body.blocks[1].type).toBe('section');
+        const serialised = JSON.stringify(body);
+        expect(serialised).not.toContain('✅');
+        expect(serialised).not.toContain('🚨');
+        // The message body is still substituted.
+        expect(serialised).toContain('1.2.3');
     });
 
     test('an afterDeployment body carries only the build, with region/env in the header', () => {

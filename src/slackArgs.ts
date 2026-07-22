@@ -9,7 +9,8 @@ import { slackMessageType, slackStatus } from './slack';
  */
 export interface slackArgs {
     type: slackMessageType;
-    status: slackStatus;
+    /** Optional — omit for a plain message with no status header or colour bar. */
+    status?: slackStatus;
     channel: string;
     token: string;
 }
