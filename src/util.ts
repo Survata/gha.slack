@@ -2,7 +2,7 @@
 
 'use strict';
 
-import { slackMessageType } from './slack';
+import { slackMessageType, slackStatus } from './slack';
 
 export namespace util {
     /**
@@ -34,5 +34,13 @@ export namespace util {
             default:
                 throw new Error(`Unknown message type [${val}]`);
         }
+    }
+
+    /**
+     * Maps the optional `status` input to a slackStatus. The input defaults to
+     * success, so only an explicit "failure" is treated as a failure.
+     */
+    export function toStatus(val: string | undefined): slackStatus {
+        return val === slackStatus.failure ? slackStatus.failure : slackStatus.success;
     }
 }

@@ -4,6 +4,10 @@ inputs:
   type:
     description: 'Type of Slack message'
     required: true
+  status:
+    description: 'success (default) or failure — drives the header emoji and colour bar'
+    required: false
+    default: success
   token:
     description: 'The Slack access token'
     required: true

@@ -4,7 +4,7 @@
 
 import { HttpClient } from '@actions/http-client';
 import * as core from '@actions/core';
-import { slack, slackMessageType } from './slack';
+import { slack, slackMessageType, slackStatus } from './slack';
 
 jest.mock('@actions/http-client');
 jest.mock('@actions/core');
@@ -20,7 +20,7 @@ beforeEach(() => {
     process.env.MESSAGE = 'a commit message';
 });
 
-const args = { type: slackMessageType.build, channel: 'C12345678', token: 'xoxb-test-token' };
+const args = { type: slackMessageType.build, status: slackStatus.success, channel: 'C12345678', token: 'xoxb-test-token' };
 
 describe('slack.run() Slack send via @actions/http-client', () => {
     test('posts to chat.postMessage with bearer auth and the substituted body', async () => {
@@ -35,10 +35,32 @@ describe('slack.run() Slack send via @actions/http-client', () => {
         expect(body.channel).toBe('C12345678');
         expect(body.username).toBe('keystone');
         expect(body.icon_url).toContain('/keystone.png');
+        // A successful build renders inside a green ("good") attachment with a ✅ header.
+        expect(body.attachments[0].color).toBe('good');
+        expect(JSON.stringify(body.attachments)).toContain('✅ keystone — published');
         // %BUILD% / %MESSAGE% tokens are substituted from the environment.
-        expect(JSON.stringify(body.blocks)).toContain('1.2.3');
-        expect(JSON.stringify(body.blocks)).toContain('a commit message');
+        expect(JSON.stringify(body.attachments)).toContain('1.2.3');
+        expect(JSON.stringify(body.attachments)).toContain('a commit message');
         expect(core.warning).not.toHaveBeenCalled();
+    });
+
+    test('a failure renders a red attachment, a 🚨 header, and a run link', async () => {
+        postJson.mockResolvedValue({ statusCode: 200, result: { ok: true } });
+        process.env.GITHUB_SERVER_URL = 'https://github.com';
+        process.env.GITHUB_REPOSITORY = 'Survata/keystone';
+        process.env.GITHUB_RUN_ID = '99';
+
+        await slack.run({ ...args, status: slackStatus.failure });
+
+        const [, body] = postJson.mock.calls[0];
+        expect(body.attachments[0].color).toBe('danger');
+        const serialised = JSON.stringify(body.attachments);
+        expect(serialised).toContain('🚨 keystone — PUBLISH FAILED');
+        expect(serialised).toContain('https://github.com/Survata/keystone/actions/runs/99');
+
+        delete process.env.GITHUB_SERVER_URL;
+        delete process.env.GITHUB_REPOSITORY;
+        delete process.env.GITHUB_RUN_ID;
     });
 
     test('warns but does not throw when Slack responds ok:false on HTTP 200', async () => {
@@ -67,7 +89,8 @@ describe('slack.run() Slack send via @actions/http-client', () => {
         await slack.run(args);
 
         const [, body] = postJson.mock.calls[0];
-        const text = body.blocks[1].text.text;
+        // blocks: [0] header, [1] divider, [2] section — the section holds the substituted body.
+        const text = body.attachments[0].blocks[2].text.text;
         expect(text).toContain('…(truncated)');
         expect(text.length).toBeLessThan(3000);
     });

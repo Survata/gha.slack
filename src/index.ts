@@ -11,6 +11,7 @@ import { slackArgs } from './slackArgs';
 if (util.isTrue(process.env.GITHUB_ACTIONS)) {
     const args: slackArgs = {
         type: util.toType(core.getInput('type')),
+        status: util.toStatus(core.getInput('status')),
         channel: core.getInput('channel'),
         token: core.getInput('token'),
     };

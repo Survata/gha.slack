@@ -2,13 +2,14 @@
 
 'use strict';
 
-import { slackMessageType } from './slack';
+import { slackMessageType, slackStatus } from './slack';
 
 /**
  * Defines a Slack message.
  */
 export interface slackArgs {
     type: slackMessageType;
+    status: slackStatus;
     channel: string;
     token: string;
 }
