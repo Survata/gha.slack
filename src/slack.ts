@@ -176,7 +176,10 @@ export function buildBody(args: slackArgs): object {
     message.tokens.forEach((t: string) => {
         const token: string = '%' + t + '%';
         const value: string = truncate(process.env[t] || 'undefined');
-        msg = msg.replace(token, value);
+        // split/join, not replace(): the value is inserted literally, so a commit
+        // message containing `$&`, `$1`, `$$` etc. isn't interpreted as a
+        // replacement pattern (and every occurrence of the token is substituted).
+        msg = msg.split(token).join(value);
     });
 
     const name: string = process.env.REPOSITORY || 'undefined';

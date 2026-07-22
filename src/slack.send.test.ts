@@ -158,6 +158,22 @@ describe('buildBody() payload assembly', () => {
         expect(serialised).toContain('1.2.3');
     });
 
+    test('substitutes token values literally, not as regex replacement patterns', () => {
+        // A commit message can contain `$&`, `$1`, `$$` etc. — String.replace would
+        // interpret those as replacement patterns and mangle the text.
+        process.env.MESSAGE = 'raise $1 and $& then $$ done';
+
+        const body: any = buildBody({
+            type: slackMessageType.build,
+            status: slackStatus.success,
+            channel: 'C1',
+            token: 't',
+        });
+
+        const section = body.attachments[0].blocks[2].text.text;
+        expect(section).toContain('raise $1 and $& then $$ done');
+    });
+
     test('an afterDeployment body carries only the build, with region/env in the header', () => {
         process.env.REGION = 'us';
         process.env.ENVIRONMENT = 'staging';

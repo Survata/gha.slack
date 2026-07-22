@@ -178,7 +178,7 @@ function buildBody(args) {
     message.tokens.forEach((t) => {
         const token = '%' + t + '%';
         const value = truncate(process.env[t] || 'undefined');
-        msg = msg.replace(token, value);
+        msg = msg.split(token).join(value);
     });
     const name = process.env.REPOSITORY || 'undefined';
     const section = { type: 'section', text: { type: 'mrkdwn', text: msg } };
