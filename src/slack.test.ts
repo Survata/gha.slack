@@ -62,20 +62,16 @@ describe('test messageFactory()', () => {
 });
 
 describe('statusHeader()', () => {
-    test('build', () => {
-        expect(statusHeader(slackMessageType.build, slackStatus.success, 'keystone')).toBe('✅ keystone — published');
-        expect(statusHeader(slackMessageType.build, slackStatus.failure, 'keystone')).toBe(
-            '🚨 keystone — PUBLISH FAILED',
-        );
-    });
-
-    test('afterDeployment includes region and environment', () => {
-        expect(statusHeader(slackMessageType.afterDeployment, slackStatus.success, 'keystone', 'us', 'staging')).toBe(
-            '✅ keystone — deployed (us / staging)',
-        );
-        expect(statusHeader(slackMessageType.afterDeployment, slackStatus.failure, 'keystone', 'us', 'staging')).toBe(
-            '🚨 keystone — DEPLOY FAILED (us / staging)',
-        );
+    test.each([
+        [slackMessageType.build, slackStatus.success, undefined, undefined, '✅ keystone — published'],
+        [slackMessageType.build, slackStatus.failure, undefined, undefined, '🚨 keystone — PUBLISH FAILED'],
+        [slackMessageType.afterDeployment, slackStatus.success, 'us', 'staging', '✅ keystone — deployed (us / staging)'],
+        [slackMessageType.afterDeployment, slackStatus.failure, 'us', 'staging', '🚨 keystone — DEPLOY FAILED (us / staging)'],
+        // An early deploy failure may not have exported REGION/ENVIRONMENT yet — the header drops the location.
+        [slackMessageType.afterDeployment, slackStatus.failure, undefined, undefined, '🚨 keystone — DEPLOY FAILED'],
+        [slackMessageType.beforeDeployment, slackStatus.failure, 'us', 'staging', '🚨 keystone — DEPLOYMENT FAILED (us / staging)'],
+    ])('%s / %s → %s', (type, status, region, environment, expected) => {
+        expect(statusHeader(type, status, 'keystone', region, environment)).toBe(expected);
     });
 });
 

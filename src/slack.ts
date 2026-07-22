@@ -6,6 +6,7 @@ import { Argument, Command } from 'commander';
 import { HttpClient } from '@actions/http-client';
 import * as core from '@actions/core';
 import { slackArgs } from './slackArgs';
+import { util } from './util';
 
 /**
  * Slack rejects section block text fields longer than 3000 chars, so we truncate
@@ -67,6 +68,7 @@ export function statusHeader(
     switch (type) {
         case slackMessageType.build:
             return `${emoji} ${repository} — ${failed ? 'PUBLISH FAILED' : 'published'}`;
+        // beforeDeployment is a legacy type — no repo currently emits it — kept for completeness.
         case slackMessageType.beforeDeployment:
             return `${emoji} ${repository} — ${failed ? 'DEPLOYMENT FAILED' : 'deploying'}${location}`;
         case slackMessageType.afterDeployment:
@@ -133,8 +135,7 @@ export namespace slack {
             .action(async (type, options) => {
                 const args: slackArgs = {
                     type: type,
-                    // Mirrors util.toStatus: anything that isn't an explicit failure is a success.
-                    status: options.status === slackStatus.failure ? slackStatus.failure : slackStatus.success,
+                    status: util.toStatus(options.status),
                     channel: options.channel,
                     token: options.token,
                 };
@@ -186,6 +187,10 @@ export function buildBody(args: slackArgs): object {
 
     return {
         channel: args.channel,
+        // Top-level text is what Slack shows in mobile push notifications and the
+        // channel-list preview — attachment blocks don't drive those. Mirror the
+        // header so a failure alert reads as a failure before it's even opened.
+        text: header,
         username: `${name}`,
         icon_url: `https://s3.amazonaws.com/media.upwave.com/slack/${name}.png`,
         attachments: [{ color: attachmentColor(args.status), blocks }],

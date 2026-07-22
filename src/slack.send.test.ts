@@ -4,7 +4,7 @@
 
 import { HttpClient } from '@actions/http-client';
 import * as core from '@actions/core';
-import { slack, slackMessageType, slackStatus } from './slack';
+import { buildBody, slack, slackMessageType, slackStatus } from './slack';
 
 jest.mock('@actions/http-client');
 jest.mock('@actions/core');
@@ -18,6 +18,15 @@ beforeEach(() => {
     process.env.BUILD = '1.2.3';
     process.env.PUSHED_BY = 'dave';
     process.env.MESSAGE = 'a commit message';
+});
+
+afterEach(() => {
+    // The GITHUB_* run vars are set by individual tests; clear them so they never leak.
+    delete process.env.GITHUB_SERVER_URL;
+    delete process.env.GITHUB_REPOSITORY;
+    delete process.env.GITHUB_RUN_ID;
+    delete process.env.REGION;
+    delete process.env.ENVIRONMENT;
 });
 
 const args = { type: slackMessageType.build, status: slackStatus.success, channel: 'C12345678', token: 'xoxb-test-token' };
@@ -38,6 +47,8 @@ describe('slack.run() Slack send via @actions/http-client', () => {
         // A successful build renders inside a green ("good") attachment with a ✅ header.
         expect(body.attachments[0].color).toBe('good');
         expect(JSON.stringify(body.attachments)).toContain('✅ keystone — published');
+        // Top-level text drives the mobile push notification / preview.
+        expect(body.text).toBe('✅ keystone — published');
         // %BUILD% / %MESSAGE% tokens are substituted from the environment.
         expect(JSON.stringify(body.attachments)).toContain('1.2.3');
         expect(JSON.stringify(body.attachments)).toContain('a commit message');
@@ -54,13 +65,10 @@ describe('slack.run() Slack send via @actions/http-client', () => {
 
         const [, body] = postJson.mock.calls[0];
         expect(body.attachments[0].color).toBe('danger');
+        expect(body.text).toBe('🚨 keystone — PUBLISH FAILED');
         const serialised = JSON.stringify(body.attachments);
         expect(serialised).toContain('🚨 keystone — PUBLISH FAILED');
         expect(serialised).toContain('https://github.com/Survata/keystone/actions/runs/99');
-
-        delete process.env.GITHUB_SERVER_URL;
-        delete process.env.GITHUB_REPOSITORY;
-        delete process.env.GITHUB_RUN_ID;
     });
 
     test('warns but does not throw when Slack responds ok:false on HTTP 200', async () => {
@@ -93,5 +101,58 @@ describe('slack.run() Slack send via @actions/http-client', () => {
         const text = body.attachments[0].blocks[2].text.text;
         expect(text).toContain('…(truncated)');
         expect(text.length).toBeLessThan(3000);
+    });
+});
+
+describe('buildBody() payload assembly', () => {
+    test('a failure with no GITHUB_* run vars omits the run-link context block', () => {
+        const body: any = buildBody({
+            type: slackMessageType.build,
+            status: slackStatus.failure,
+            channel: 'C1',
+            token: 't',
+        });
+
+        const blocks = body.attachments[0].blocks;
+        // header, divider, section only — no trailing context block when there's no run URL.
+        expect(blocks).toHaveLength(3);
+        expect(blocks.some((b: any) => b.type === 'context')).toBe(false);
+        expect(JSON.stringify(body)).not.toContain('View run');
+    });
+
+    test('a failure with GITHUB_* run vars appends the run-link context block', () => {
+        process.env.GITHUB_SERVER_URL = 'https://github.com';
+        process.env.GITHUB_REPOSITORY = 'Survata/keystone';
+        process.env.GITHUB_RUN_ID = '7';
+
+        const body: any = buildBody({
+            type: slackMessageType.build,
+            status: slackStatus.failure,
+            channel: 'C1',
+            token: 't',
+        });
+
+        const blocks = body.attachments[0].blocks;
+        expect(blocks).toHaveLength(4);
+        expect(blocks[3].type).toBe('context');
+        expect(blocks[3].elements[0].text).toContain('https://github.com/Survata/keystone/actions/runs/7');
+    });
+
+    test('an afterDeployment body carries only the build, with region/env in the header', () => {
+        process.env.REGION = 'us';
+        process.env.ENVIRONMENT = 'staging';
+
+        const body: any = buildBody({
+            type: slackMessageType.afterDeployment,
+            status: slackStatus.failure,
+            channel: 'C1',
+            token: 't',
+        });
+
+        expect(body.text).toBe('🚨 keystone — DEPLOY FAILED (us / staging)');
+        const section = body.attachments[0].blocks[2].text.text;
+        expect(section).toBe('_Build:_ 1.2.3');
+        expect(section).not.toContain('Pushed by');
+        expect(section).not.toContain('Message');
     });
 });

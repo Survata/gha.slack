@@ -84,6 +84,7 @@ exports.messageFactory = exports.buildBody = exports.slack = exports.runUrl = ex
 const commander_1 = __nccwpck_require__(909);
 const http_client_1 = __nccwpck_require__(844);
 const core = __importStar(__nccwpck_require__(484));
+const util_1 = __nccwpck_require__(713);
 exports.MAX_TOKEN_LENGTH = 2800;
 const TRUNCATION_SUFFIX = '\n…(truncated)';
 function truncate(value, max = exports.MAX_TOKEN_LENGTH) {
@@ -154,7 +155,7 @@ var slack;
             .action(async (type, options) => {
             const args = {
                 type: type,
-                status: options.status === slackStatus.failure ? slackStatus.failure : slackStatus.success,
+                status: util_1.util.toStatus(options.status),
                 channel: options.channel,
                 token: options.token,
             };
@@ -190,6 +191,7 @@ function buildBody(args) {
     }
     return {
         channel: args.channel,
+        text: header,
         username: `${name}`,
         icon_url: `https://s3.amazonaws.com/media.upwave.com/slack/${name}.png`,
         attachments: [{ color: attachmentColor(args.status), blocks }],
