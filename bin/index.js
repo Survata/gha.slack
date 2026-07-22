@@ -204,8 +204,7 @@ function buildBody(args) {
     }
     return {
         ...base,
-        text: header,
-        attachments: [{ color: attachmentColor(args.status), blocks }],
+        attachments: [{ color: attachmentColor(args.status), fallback: header, blocks }],
     };
 }
 exports.buildBody = buildBody;
