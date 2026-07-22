@@ -3,7 +3,7 @@
 'use strict';
 
 import { util } from './util';
-import { slackMessageType } from './slack';
+import { slackMessageType, slackStatus } from './slack';
 
 describe('test running under github action', () => {
     test('', () => {
@@ -23,5 +23,26 @@ describe('test running under github action', () => {
         expect(util.toType('build')).toBe(slackMessageType.build);
         expect(util.toType('beforeDeployment')).toBe(slackMessageType.beforeDeployment);
         expect(util.toType('afterDeployment')).toBe(slackMessageType.afterDeployment);
+    });
+});
+
+describe('toStatus', () => {
+    test('maps the explicit values', () => {
+        expect(util.toStatus('success')).toBe(slackStatus.success);
+        expect(util.toStatus('failure')).toBe(slackStatus.failure);
+    });
+
+    test('treats empty/undefined as no status (the input is optional)', () => {
+        // Omitting `status` means "no status indicator" — not a claimed success.
+        expect(util.toStatus('')).toBeUndefined();
+        expect(util.toStatus(undefined)).toBeUndefined();
+    });
+
+    test('treats an unrecognised non-empty value as failure, never a false success', () => {
+        // A misconfigured/typo'd status must never post a green ✅ over a real
+        // failure — fail toward alerting. (Not a throw: this action must never
+        // fail the consuming workflow step.)
+        expect(util.toStatus('cancelled')).toBe(slackStatus.failure);
+        expect(util.toStatus('faliure')).toBe(slackStatus.failure);
     });
 });

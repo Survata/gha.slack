@@ -4,11 +4,31 @@ A GitHub Action that posts Slack messages from CI workflows. Used by Upwave's ba
 
 ## Usage
 
+Success notification — pass `status: success` for the ✅ header:
+
 ```yaml
 - name: Send Slack message
-  uses: Survata/gha.slack@v1
+  uses: Survata/gha.slack@v2
   with:
     type: build
+    status: success
+    token: ${{ secrets.SLACK_BOT_TOKEN }}
+  env:
+    REPOSITORY: ${{ github.event.repository.name }}
+    BUILD: ${{ env.DEPLOY_VERSION }}
+    PUSHED_BY: ${{ github.event.pusher.name }}
+    MESSAGE: ${{ github.event.head_commit.message }}
+```
+
+Failure notification — an `if: failure()` step with `status: failure`:
+
+```yaml
+- name: Send Slack message (if failed)
+  uses: Survata/gha.slack@v2
+  if: failure()
+  with:
+    type: build
+    status: failure
     token: ${{ secrets.SLACK_BOT_TOKEN }}
   env:
     REPOSITORY: ${{ github.event.repository.name }}
@@ -22,8 +42,19 @@ A GitHub Action that posts Slack messages from CI workflows. Used by Upwave's ba
 | Input     | Required | Default      | Description                          |
 |-----------|----------|--------------|--------------------------------------|
 | `type`    | yes      | —            | `build`, `beforeDeployment`, or `afterDeployment` |
+| `status`  | no       | *(none)*     | `success` or `failure` — sets the header emoji and colour bar. Omit for a plain message with no status indicator |
 | `token`   | yes      | —            | Slack bot token                      |
 | `channel` | no       | `CFSRFSGP8`  | Channel ID to post to                |
+
+### Status & failure highlighting
+
+`status` is **optional** and has three renderings:
+
+- `success` → green ("good") bar + bold header `✅ <repo> — published` / `✅ <repo> — deployed (<region> / <env>)`.
+- `failure` → red ("danger") bar + bold header `🚨 <repo> — PUBLISH FAILED` / `🚨 <repo> — DEPLOY FAILED (<region> / <env>)`, plus a `View run ↗` link to the failed Actions run.
+- **omitted** → a plain message (no header, no colour bar) — for notifications where a success/failure status doesn't apply.
+
+For `success`/`failure`, the run link is built from the runner's own `GITHUB_SERVER_URL` / `GITHUB_REPOSITORY` / `GITHUB_RUN_ID`, so no workflow wiring is required for it. An unrecognised non-empty `status` is treated as `failure` (never a false success), and the action never fails the workflow step over a bad value.
 
 ### Environment variables
 
@@ -33,7 +64,7 @@ Per type:
 
 - `build`: `BUILD`, `PUSHED_BY`, `MESSAGE`
 - `beforeDeployment`: `REGION`, `ENVIRONMENT`, `BUILD`, `MESSAGE`
-- `afterDeployment`: `REGION`, `ENVIRONMENT`, `BUILD`, `MESSAGE`
+- `afterDeployment`: `REGION`, `ENVIRONMENT`, `BUILD` (`REGION`/`ENVIRONMENT` appear in the header; the deploy body is just the build version)
 
 Long values (e.g. multi-paragraph commit messages) are truncated to 2800 chars to fit Slack's 3000-char section limit.
 
@@ -58,13 +89,29 @@ The action runs `bin/index.js`, which is a committed bundle produced by `@vercel
 When `GITHUB_ACTIONS` is unset, `index.ts` exposes a CLI:
 
 ```bash
+# Success (✅ header, green bar):
+REPOSITORY=keystone BUILD=1.2.3 PUSHED_BY=dave MESSAGE="local test" \
+  yarn local slack build --status success --token xoxb-... --channel C12345678
+
+# Failure (🚨 header, red bar, run link):
+REPOSITORY=keystone BUILD=1.2.3 PUSHED_BY=dave MESSAGE="local test" \
+  GITHUB_SERVER_URL=https://github.com GITHUB_REPOSITORY=Survata/keystone GITHUB_RUN_ID=123 \
+  yarn local slack build --status failure --token xoxb-... --channel C12345678
+
+# No status (plain message — omit --status):
 REPOSITORY=keystone BUILD=1.2.3 PUSHED_BY=dave MESSAGE="local test" \
   yarn local slack build --token xoxb-... --channel C12345678
 ```
 
+## Versioning: `v1` vs `v2`
+
+`v2` introduced the optional `status` input and the ✅/🚨 header + colour-bar treatment. It is rolled out **opt-in**: a consumer moves from `@v1` to `@v2` by editing its own workflows to pass `status: success` on the existing notify step and add an `if: failure()` step with `status: failure`. There is no big-bang — `v1` is frozen at its last commit and un-migrated repos keep the old plain-text behaviour until their PR lands.
+
+Within a major, the tag is still **floating**: once a repo pins `@v2`, moving the `v2` tag rolls that repo to the newest v2 bundle on its next run. The procedure below applies to patching whichever major is current (substitute `v2` for `v1`).
+
 ## Publishing a new version
 
-All consumers reference `Survata/gha.slack@v1`. The `v1` tag is a **floating tag** — moving it rolls every consumer to the new version on their next workflow run. No consumer-side changes are required.
+The floating major tag rolls every consumer pinned to it to the new bundle on their next workflow run. No consumer-side changes are required for a same-major bundle update.
 
 ### Procedure
 
