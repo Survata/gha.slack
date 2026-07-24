@@ -3,8 +3,14 @@
 # IMPORTANT: merging a Dependabot PR is NOT a deploy. The shipped artifact is the
 # committed `bin/index.js` ncc bundle, which Dependabot does NOT regenerate. After
 # merging any dependency bump you must run `yarn package`, commit the regenerated
-# `bin/index.js`, and move the `v1` tag — otherwise every consumer keeps running the
+# `bin/index.js`, and move the `v2` tag — otherwise every consumer keeps running the
 # old code. See "Dependency updates (Dependabot)" in README.md.
+#
+# Exception: most dev-only advisories (eslint/jest and their transitives) never enter
+# the bundle. `typescript` and `@vercel/ncc` are the exception to that exception — they
+# BUILD the bundle, so bumping either does rewrite it. The test is empirical, not by
+# category: if `yarn package` reproduces `bin/index.js` byte-for-byte, the lockfile bump
+# is the whole fix and `v2` must NOT move.
 #
 # Updates are grouped (production / development × version / security) so we get a
 # handful of consolidated PRs instead of one PR per advisory.
