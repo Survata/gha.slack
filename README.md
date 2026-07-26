@@ -103,11 +103,11 @@ REPOSITORY=keystone BUILD=1.2.3 PUSHED_BY=dave MESSAGE="local test" \
   yarn local slack build --token xoxb-... --channel C12345678
 ```
 
-## Versioning: `v1` vs `v2`
+## Versioning: `v2` is the live tag
 
-`v2` introduced the optional `status` input and the ✅/🚨 header + colour-bar treatment. It is rolled out **opt-in**: a consumer moves from `@v1` to `@v2` by editing its own workflows to pass `status: success` on the existing notify step and add an `if: failure()` step with `status: failure`. There is no big-bang — `v1` is frozen at its last commit and un-migrated repos keep the old plain-text behaviour until their PR lands.
+`v2` introduced the optional `status` input and the ✅/🚨 header + colour-bar treatment. **The migration is complete — every consumer now pins `@v2`, and `v1` has no references left.** The `v1` tag is left in place, frozen at its last commit, purely so any stale reference outside the known consumer list keeps resolving. Don't move it, and don't add features to it.
 
-Within a major, the tag is still **floating**: once a repo pins `@v2`, moving the `v2` tag rolls that repo to the newest v2 bundle on its next run. The procedure below applies to patching whichever major is current (substitute `v2` for `v1`).
+`v2` is a **floating** tag: moving it rolls every consumer to the newest bundle on their next workflow run. All the procedures below operate on `v2`.
 
 ## Publishing a new version
 
@@ -137,17 +137,17 @@ The floating major tag rolls every consumer pinned to it to the new bundle on th
 4. **Optional but recommended for non-trivial changes — staged rollout via release-candidate tag.** Push a temporary tag, point one low-stakes consumer at it, watch one publish cycle, then promote:
 
    ```bash
-   git tag v1-rc <sha>
-   git push origin v1-rc
+   git tag v2-rc <sha>
+   git push origin v2-rc
    ```
 
-   In a chosen consumer repo (e.g. `email-service`), temporarily change `uses: Survata/gha.slack@v1` to `uses: Survata/gha.slack@v1-rc`, run a publish, and confirm the Slack message arrives correctly. Then revert that change and proceed to step 5.
+   In a chosen consumer repo (e.g. `email-service`), temporarily change `uses: Survata/gha.slack@v2` to `uses: Survata/gha.slack@v2-rc`, run a publish, and confirm the Slack message arrives correctly. Then revert that change and proceed to step 5.
 
-5. **Move the `v1` tag** to the new commit. This is the moment of rollout:
+5. **Move the `v2` tag** to the new commit. This is the moment of rollout:
 
    ```bash
-   git tag -f v1 <sha>
-   git push origin v1 --force
+   git tag -f v2 <sha>
+   git push origin v2 --force
    ```
 
    All 9 consumer repos pick up the new version on their next workflow run.
@@ -155,22 +155,22 @@ The floating major tag rolls every consumer pinned to it to the new bundle on th
 6. **Optional — cut an immutable version tag** for traceability:
 
    ```bash
-   git tag v1.1.0 <sha>
-   git push origin v1.1.0
+   git tag v2.1.0 <sha>
+   git push origin v2.1.0
    ```
 
 7. Clean up the RC tag if you created one:
 
    ```bash
-   git push origin :v1-rc
-   git tag -d v1-rc
+   git push origin :v2-rc
+   git tag -d v2-rc
    ```
 
 ### Manual steps that aren't scripted
 
 - Reviewing the regenerated `bin/index.js` diff is generally not useful — it's a 470kB webpack bundle. Trust the source diff and the tests.
 - There is no Marketplace release flow. The action is not listed there; consumers reference the repo directly.
-- There is no semantic-versioning automation. You decide when to cut `v1.x.y` and whether to move `v1`.
+- There is no semantic-versioning automation. You decide when to cut `v2.x.y` and whether to move `v2`.
 - Repository icon: each consumer expects an icon at `https://s3.amazonaws.com/media.upwave.com/slack/<repo-name>.png`. When onboarding a new consumer, upload its icon to that S3 path.
 
 ## Dependency updates (Dependabot)
@@ -181,7 +181,7 @@ Dependabot is configured in [`.github/dependabot.yml`](.github/dependabot.yml). 
 
 The artifact that actually runs in consumer workflows is the committed `bin/index.js` bundle, **not** `package.json` / `yarn.lock`. A Dependabot PR only updates the manifests and the lockfile — it does **not** regenerate the bundle. If you merge a Dependabot PR and stop there, every consumer keeps running the old, unpatched code that is still baked into `bin/index.js`.
 
-To actually ship a dependency update you must rebuild the bundle and move the `v1` tag:
+To actually ship a dependency update you must rebuild the bundle and move the `v2` tag — **unless the bump never reaches the bundle**, which for this repo is the common case. Step 3 is where you find out which situation you're in; don't skip ahead to the tag move.
 
 1. Merge (or check out) the Dependabot branch so `package.json` / `yarn.lock` are updated.
 
@@ -194,13 +194,23 @@ To actually ship a dependency update you must rebuild the bundle and move the `v
    yarn package
    ```
 
-3. Commit the regenerated bundle together with the lockfile change:
+3. **Decide whether this bump ships anything at all**, by checking whether the rebuild changed the bundle:
+
+   ```bash
+   git status --porcelain bin/index.js
+   ```
+
+   **No output — the bundle is byte-identical.** The advisory was for a dev-only *runtime* dependency (eslint, Jest, or one of their transitive deps) that never enters the shipped artifact. There is nothing to roll out: commit `package.json` and `yarn.lock` alone, leave `bin/index.js` untouched, and **do not move `v2`**. You are done — stop here.
+
+   **The bundle changed.** The dependency is baked into the shipped artifact, so continue to step 4. Note this also covers `typescript` and `@vercel/ncc`: they are devDependencies, but they *build* the bundle, so bumping either rewrites it and it does need to ship.
+
+4. Commit the regenerated bundle together with the lockfile change:
 
    ```bash
    git add package.json yarn.lock bin/index.js
    git commit -m "Rebuild bundle after dependency update"
    ```
 
-4. Follow [Publishing a new version](#publishing-a-new-version) from step 4 — optionally validate via the `v1-rc` tag, then **move the `v1` tag** to the new commit. The rollout is not live until `v1` moves.
+5. Follow [Publishing a new version](#publishing-a-new-version) from step 4 — optionally validate via the `v2-rc` tag, then **move the `v2` tag** to the new commit. The rollout is not live until `v2` moves.
 
-A quick way to confirm a bump actually reached the bundle: after `yarn package`, grep `bin/index.js` for the new version string or the patched code before moving `v1`.
+To confirm a bump actually reached the bundle beyond the byte-comparison in step 3, grep `bin/index.js` for the new version string or the patched code before moving `v2`.
