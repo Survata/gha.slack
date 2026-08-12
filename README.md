@@ -175,9 +175,9 @@ The floating major tag rolls every consumer pinned to it to the new bundle on th
 
 ## Dependency updates (Dependabot)
 
-Dependabot is configured in [`.github/dependabot.yml`](.github/dependabot.yml). It runs weekly and **groups** updates into a handful of consolidated PRs (production / development × version / security) rather than opening one PR per advisory.
+Dependabot is configured in [`.github/dependabot.yml`](.github/dependabot.yml) for two ecosystems. **npm** runs weekly and **groups** updates into a handful of consolidated PRs (production / development × version / security) rather than opening one PR per advisory. **github-actions** runs monthly and keeps the SHA-pinned actions in `.github/workflows` current. The rest of this section is about npm PRs — a github-actions PR only bumps a pinned action ref, so it never touches the bundle and never needs a `v2` move.
 
-### ⚠️ Merging a Dependabot PR is NOT a deploy
+### ⚠️ Merging an npm Dependabot PR is NOT a deploy
 
 The artifact that actually runs in consumer workflows is the committed `bin/index.js` bundle, **not** `package.json` / `yarn.lock`. A Dependabot PR only updates the manifests and the lockfile — it does **not** regenerate the bundle. If you merge a Dependabot PR and stop there, every consumer keeps running the old, unpatched code that is still baked into `bin/index.js`.
 
