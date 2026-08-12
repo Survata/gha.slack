@@ -72,7 +72,7 @@ Slack send failures are logged as warnings but never fail the workflow step — 
 
 ## Development
 
-Requires Node 20 (see `.nvmrc`).
+Requires Node 24 (see `.nvmrc`).
 
 ```bash
 nvm use

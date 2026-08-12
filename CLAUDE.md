@@ -12,8 +12,8 @@ Not published to the GitHub Marketplace. It works because any public repo with a
 
 - `src/` — TypeScript sources (`index.ts` entry, `slack.ts` core, `util.ts`, `slackArgs.ts`, tests).
 - `bin/index.js` — **committed build artifact**. This is what GitHub Actions actually executes. Regenerate with `yarn package` after any source change. Never hand-edit.
-- `action.yaml` — action manifest. `using: node20` must match `.nvmrc`.
-- `.nvmrc` — pins Node 20 for local dev. `nvm use` to activate.
+- `action.yaml` — action manifest. `using: node24` must match `.nvmrc`.
+- `.nvmrc` — pins Node 24 for local dev. `nvm use` to activate.
 
 ## Build & test
 
