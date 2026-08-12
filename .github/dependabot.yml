@@ -1,6 +1,6 @@
 # Dependabot configuration.
 #
-# IMPORTANT: merging a Dependabot PR is NOT a deploy. The shipped artifact is the
+# IMPORTANT: merging an npm Dependabot PR is NOT a deploy. The shipped artifact is the
 # committed `bin/index.js` ncc bundle, which Dependabot does NOT regenerate. After
 # merging any dependency bump you must run `yarn package`, commit the regenerated
 # `bin/index.js`, and move the `v2` tag — otherwise every consumer keeps running the
@@ -15,8 +15,10 @@
 # Updates are grouped (production / development × version / security) so we get a
 # handful of consolidated PRs instead of one PR per advisory.
 #
-# Only the `npm` ecosystem is configured: there are no GitHub Actions workflows in
-# this repo, so the `github-actions` ecosystem would have nothing to monitor.
+# Two ecosystems are monitored: `npm` (the bundle's dependencies — all the caveats above
+# apply) and `github-actions` (the SHA-pinned actions in .github/workflows). A
+# github-actions PR only bumps a pinned action ref; it never touches the bundle and never
+# requires moving `v2`, so the bundle/`v2` caveats above are npm-only.
 version: 2
 updates:
   - package-ecosystem: "npm"
@@ -44,5 +46,17 @@ updates:
       development-security:
         applies-to: security-updates
         dependency-type: "development"
+        patterns:
+          - "*"
+  # SHA-pinned GitHub Actions (see .pinact.yml + the pinned-actions guard in checkCommit).
+  # Monthly, grouped into a single PR; cooldown skips releases younger than 14 days.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    cooldown:
+      default-days: 14
+    groups:
+      actions:
         patterns:
           - "*"
